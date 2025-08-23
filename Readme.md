@@ -1,24 +1,63 @@
-## SalPhaseIon + Cosmic Duality — Notes for the patient solver
+## GSMG Duality — Reproducible solution (SalPhaseIon + Cosmic Duality)
 
-### Before we begin
-To everyone wandering through this maze: take a breath. Puzzles like this are a marathon, not a sprint. If these notes become the last piece you needed, I hope they save you time—and if they do, consider supporting the work that keeps guides like this alive.
+### A note before we begin
+To everyone still exploring this puzzle: I wish you clarity, patience, and a bit of luck. If what you find here becomes the key that finally unlocks your path, consider supporting this effort. With your help I’ll keep publishing new notes and hints that make the path clearer for others.
 
-Donations (with gratitude):
-- BTC: `1JK27jtvE1wS4VG9k7Zpo8wBufMbYwy3r8`
+Donations (thank you):
+- BTC: `16jynNBMGeQSSNiAjJABfpCd98L5vncbj7`
+- ETH, BNB, USDT, USDC: `0x61200Ac01e8B635e4C3FecBEd73DbAb898Cae0a9` (BEP20, ERC20)
+- Solana: `2SwRex7tvqY2jVJM39TnPb6DmnM61ZGwxZvQetEqsGhR`
 
 ---
 
-### The lay of the land
-At the end of the trail, two artifacts matter: `SalPhaseIon.txt` and `cosmic_duality.txt`. One hides words, the other hides meaning. The first gives you seven textual parts; the second is an OpenSSL `Salted__` envelope that won’t open unless the seven are joined the right way.
+This folder contains minimal scripts and instructions to reproduce the final stage of the GSMG.io puzzle using:
+- `SalPhaseIon.txt` → 7 textual parts
+- `cosmic_duality.txt` → OpenSSL `Salted__` AES‑256‑CBC blob
 
-How the seven parts reveal themselves is consistent with the puzzle’s own language:
-- The early hints are mechanical but elegant: sequences of `a`/`b` become ASCII; compact alphabets (a..i with `o`) become decimal, then hex, then text. The outputs read naturally in context.
-- The later hints are linguistic: the phrase “our first hint is your last command” resolves to `yourlastcommand`. The odd-looking “shabefanstoo” breaks apart into a familiar theme across the challenge—`sha`—plus a very human hint, “answer too”. Together: a second answer → `secondanswer`.
-- Part five looks deceptively open-ended. It isn’t. With parts 1–4 fixed and a small, sensible candidate set for 5–7, only one combination yields valid padding and a stable output.
+### Phase: SalPhaseIon (how the 7 passwords were derived)
+1) Identify AB blocks → ASCII (p1, p2)
+   - Observation: two long sequences composed only of `a` and `b`, space-separated.
+   - Method: map `a→0`, `b→1`, group 8 bits per byte, decode as ASCII.
+   - Results: p1=`matrixsumlist`, p2=`enter`.
 
-Once the seven are in place, we do not hash them as one string. Instead, we compute SHA‑256 for each, then XOR those seven digests byte by byte, in order. That 32‑byte result (hex) becomes the OpenSSL password used to derive the AES‑256 key and IV (MD5 `EVP_BytesToKey`, using the included salt).
+2) Decode `z`-separated segments with a restricted alphabet (p3, p4)
+   - Observation: segments around the letter `z` contain tokens only from `a..i` plus `o`.
+   - Hypothesis: map `a..i→1..9`, `o→0`; interpret the resulting decimal string; convert to hex; then to ASCII.
+   - Results: p3=`lastwordsbeforearchichoice`, p4=`thispassword`.
 
-The seven parts, in order:
+3) Resolve inline phrase for p6
+   - Literal in text: “our first hint is your last command”.
+   - Take the directive literally and compress spacing/case consistently across the puzzle.
+   - Result: p6=`yourlastcommand`.
+
+4) Interpret “shabefanstoo” for p7
+   - Pattern: `sha` appears across the puzzle as a nudge towards SHA‑256; `ans too` reads naturally as “answer too”.
+   - Semantic resolution: a second answer.
+   - Result: p7=`secondanswer` (alternatives like `answertoo`, `answertwo`, `answer2`, `answeralso` were tested and rejected).
+
+5) Determine p5 by constrained search + validation
+   - p5 is textually ambiguous; use a compact, reasonable candidate set tied to p1’s theme (e.g., `matrixsumlist`, `sumlist`, `rowcolsum`, ...).
+   - Criterion: only one candidate, combined with p1–p4,p6,p7, yields valid PKCS#7 padding on the final decryption and the expected output hash.
+   - Result: p5=`matrixsumlist`.
+
+### Phase: Cosmic Duality (why OpenSSL, why AES‑256‑CBC)
+- Input properties
+  - File is base64 (valid charset, length multiple of 4).
+  - Base64-decoding reveals the header bytes `53 61 6c 74 65 64 5f 5f` → ASCII `Salted__`.
+- OpenSSL convention
+  - `Salted__` + 8 bytes of salt is the standard envelope used by `openssl enc`.
+  - Key and IV are derived via MD5 `EVP_BytesToKey(password, salt)`.
+- Mode and key size selection
+  - Prior phases reference `enc -aes-256-cbc -a` explicitly.
+  - The password we produce (XOR of seven SHA‑256 digests) is 32 bytes, matching AES‑256.
+  - Decryption with AES‑256‑CBC yields correct PKCS#7 padding and a stable binary. Other modes/sizes do not validate.
+
+### Summary of the method
+- Compute SHA‑256 for each password, XOR the 7 digests (in order) to obtain a 32‑byte hex key.
+- Use that hex as the OpenSSL password (EVP_BytesToKey, MD5) to derive AES‑256 key + IV and decrypt `cosmic_duality.txt`.
+- A correct key yields valid PKCS#7 padding and a fixed output hash.
+
+### Passwords (order is critical)
 1) `matrixsumlist`
 2) `enter`
 3) `lastwordsbeforearchichoice`
@@ -27,56 +66,44 @@ The seven parts, in order:
 6) `yourlastcommand`
 7) `secondanswer`
 
-The derived key (hex):
+### Derived key (hex)
 ```
 a795de117e472590e572dc193130c763e3fb555ee5db9d34494e156152e50735
 ```
 
-Decrypting `cosmic_duality.txt` with that key (the blob is base64, begins with `Salted__`, includes an 8‑byte salt) yields a single binary with a fixed fingerprint:
+### Expected output
 ```
 SHA-256(cosmic_decrypted.bin) = 4f7a1e4efe4bf6c5581e32505c019657cb7b030e90232d33f011aca6a5e9c081
 ```
-If you get a different hash, you didn’t open the right door.
 
----
-
-### Using the tools (kept simple)
-These scripts live in `GSMG_Duality/`. The required inputs (`SalPhaseIon.txt`, `cosmic_duality.txt`) should be one directory above.
-
-Requirements:
+### Requirements
 - Python 3.8+
 - `pip install pycryptodome`
+- Place `SalPhaseIon.txt` and `cosmic_duality.txt` one directory above `GSMG_Duality/`.
 
-1) Derive the key and decrypt:
+### Usage
+1) Derive key and decrypt:
 ```powershell
 python .\GSMG_Duality\solver_salphasion_cosmic.py
 ```
-You’ll see the seven parts, the derived key, and a new file at the project root:
-- `cosmic_decrypted.bin`
-- its SHA‑256 printed for good measure
+Outputs:
+- Prints the 7 passwords and the derived hex key
+- Writes `cosmic_decrypted.bin` at the project root
+- Prints the SHA‑256 of the output
 
-2) Verify the output hash:
+2) Verify the hash:
 ```powershell
 Get-FileHash -Algorithm SHA256 .\cosmic_decrypted.bin
 # or
 certutil -hashfile .\cosmic_decrypted.bin SHA256
 ```
-Expect:
+Expected:
 ```
 4f7a1e4efe4bf6c5581e32505c019657cb7b030e90232d33f011aca6a5e9c081
 ```
 
-3) (Optional) Prove uniqueness within a reasonable space:
+3) Optional: validate uniqueness for parts 5–7
 ```powershell
 python .\GSMG_Duality\validate_uniqueness.py
 ```
-It walks a compact candidate set for parts 5–7 and confirms there’s exactly one valid decryption with the expected hash.
-
----
-
-### Closing thoughts
-Puzzles are conversations: between the author and the solver, but also between the methods we bring and the patience we keep. If this write‑up helped you move with a steadier step, that’s the outcome it was designed for. And if you can, supporting it helps keep the lights on for the next traveler.
-
-- BTC: `1JK27jtvE1wS4VG9k7Zpo8wBufMbYwy3r8`
-
-
+Confirms that, with parts 1–4 fixed and a compact search set for 5–7, exactly one combination yields valid padding and the expected hash.
